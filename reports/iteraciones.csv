@@ -1,0 +1,9 @@
+iteración,arquitectura,dropout,batchnorm,weight_decay,lr,epochs_ran,RMSE_train,RMSE_val
+it7_deep3,256-128-64,0.3,True,0.0001,0.001,110,9511.8,25413.9
+it4_dropout,128-64,0.3,True,0.0,0.001,73,11399.5,28030.4
+it1_baseline,64,0.0,False,0.0,0.001,52,19072.4,28280.7
+it8_lowlr,256-128,0.2,True,0.0001,0.0005,101,6521.5,28925.1
+it5_wdecay,128-64,0.3,True,0.0001,0.001,57,16562.5,29092.4
+it2_deeper,128-64,0.0,False,0.0,0.001,48,18325.8,29479.4
+it6_wider,256-128,0.3,True,0.0001,0.001,73,8620.9,29577.4
+it3_batchnorm,128-64,0.0,True,0.0,0.001,69,6664.9,30441.6

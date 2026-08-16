@@ -33,27 +33,37 @@ ID_COL = "Id"
 # ---------------------------------------------------------------------------
 # Modelo
 # ---------------------------------------------------------------------------
-class MLP(nn.Module):
-    """MLP para regresión con BatchNorm + Dropout.
+ACT_MAP = {"relu": nn.ReLU, "leaky_relu": nn.LeakyReLU, "tanh": nn.Tanh}
 
-    La configuración (dims de entrada/ocultas, dropout) se serializa dentro del
-    checkpoint, de modo que `predict.py` puede reconstruir la red sin conocer de
-    antemano los hiperparámetros elegidos durante la búsqueda.
+
+class MLP(nn.Module):
+    """MLP de regresión configurable.
+
+    hidden_layers : lista con el nº de neuronas por capa oculta, p. ej. [256, 128].
+    activation    : 'relu' | 'leaky_relu' | 'tanh'.
+    dropout       : probabilidad de dropout (0 = sin dropout).
+    batchnorm     : si True, añade BatchNorm1d tras cada capa lineal oculta.
+
+    La configuración completa se serializa dentro del checkpoint, de modo que
+    `predict.py` puede reconstruir la red sin conocer de antemano los
+    hiperparámetros elegidos durante la búsqueda.
     """
 
-    def __init__(self, input_dim: int, hidden_dims=(256, 128), dropout: float = 0.3):
+    def __init__(self, input_dim: int, hidden_layers=(256, 128),
+                 activation: str = "relu", dropout: float = 0.3,
+                 batchnorm: bool = True):
         super().__init__()
-        layers = []
-        prev = input_dim
-        for h in hidden_dims:
-            layers += [
-                nn.Linear(prev, h),
-                nn.BatchNorm1d(h),
-                nn.ReLU(),
-                nn.Dropout(dropout),
-            ]
+        Act = ACT_MAP[activation]
+        layers, prev = [], input_dim
+        for h in hidden_layers:
+            layers.append(nn.Linear(prev, h))
+            if batchnorm:
+                layers.append(nn.BatchNorm1d(h))
+            layers.append(Act())
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
             prev = h
-        layers.append(nn.Linear(prev, 1))
+        layers.append(nn.Linear(prev, 1))   # salida de regresión (sin activación)
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -112,10 +122,14 @@ def build_preprocessor(df: pd.DataFrame):
 # ---------------------------------------------------------------------------
 # Inferencia
 # ---------------------------------------------------------------------------
-def predict_df(df_raw: pd.DataFrame, preprocessor, model, device="cpu") -> np.ndarray:
-    """Aplica el pipeline completo a un DataFrame crudo y devuelve SalePrice.
+def predict_df(df_raw: pd.DataFrame, preprocessor, model,
+               y_log_mean: float = 0.0, y_log_std: float = 1.0,
+               device="cpu") -> np.ndarray:
+    """Aplica el pipeline completo a un DataFrame crudo y devuelve SalePrice en USD.
 
-    El modelo se entrena sobre log(SalePrice); aquí se invierte con expm1.
+    El modelo se entrena sobre el objetivo estandarizado z = (log1p(y) - mean) / std.
+    Aquí se invierte la cadena completa: y = expm1(z * std + mean).
+    Con los valores por defecto (mean=0, std=1) equivale a solo invertir log1p.
     """
     df = prefill_na_none(df_raw)
     feats = df.drop(columns=[c for c in (ID_COL, TARGET) if c in df.columns])
@@ -124,17 +138,21 @@ def predict_df(df_raw: pd.DataFrame, preprocessor, model, device="cpu") -> np.nd
 
     model.eval()
     with torch.no_grad():
-        y_log = model(X).cpu().numpy()
+        z = model(X).cpu().numpy()
+    y_log = z * y_log_std + y_log_mean
     return np.expm1(y_log)
 
 
 def load_model_from_checkpoint(path: str, device="cpu") -> MLP:
     """Reconstruye el MLP desde un checkpoint que incluye su propia config."""
     ckpt = torch.load(path, map_location=device)
+    cfg = ckpt["config"]
     model = MLP(
         input_dim=ckpt["input_dim"],
-        hidden_dims=tuple(ckpt["hidden_dims"]),
-        dropout=ckpt["dropout"],
+        hidden_layers=tuple(cfg["hidden_layers"]),
+        activation=cfg.get("activation", "relu"),
+        dropout=cfg.get("dropout", 0.0),
+        batchnorm=cfg.get("batchnorm", True),
     ).to(device)
     model.load_state_dict(ckpt["state_dict"])
     model.eval()

@@ -52,7 +52,14 @@ def main():
     preprocessor = joblib.load(args.preprocessor)
     model = mlp_core.load_model_from_checkpoint(args.model)
 
-    preds = mlp_core.predict_df(df, preprocessor, model)
+    # Parámetros de la transformación del target (log1p + estandarización)
+    import torch
+    ckpt = torch.load(args.model, map_location="cpu")
+    y_log_mean = ckpt.get("y_log_mean", 0.0)
+    y_log_std = ckpt.get("y_log_std", 1.0)
+
+    preds = mlp_core.predict_df(df, preprocessor, model,
+                                y_log_mean=y_log_mean, y_log_std=y_log_std)
 
     out = pd.DataFrame({"Id": ids, "Prediction": preds})
     out.to_csv(args.output, index=False)
