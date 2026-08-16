@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.DS_Store
+.ipynb_checkpoints/
+*.pyc
+
+# Predicciones generadas (se regeneran con predict.py)
+output.csv
+
+# Informe: lo revisa y sube el autor manualmente (no versionar)
+reports/*.docx
+reports/*.pdf
+
+# NOTA: data/train.csv y artifacts/ SÍ se versionan a propósito,
+# para poder reproducir predicciones el día de la presentación.
