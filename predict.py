@@ -1,19 +1,5 @@
 #!/usr/bin/env python3
-"""
-predict.py — Genera predicciones de SalePrice para un dataset de prueba.
 
-Carga el preprocesamiento y el modelo ya entrenados desde `artifacts/`, consume
-un CSV con la misma estructura que `data/train.csv` (pero sin la columna
-`SalePrice`), y escribe un CSV con el formato exigido: dos columnas `Id,Prediction`.
-
-Uso:
-    python predict.py --input archivo_prueba/pipeline_test.csv --output output.csv
-
-El pipeline aplicado es EXACTAMENTE el mismo que en entrenamiento (mismo
-ColumnTransformer serializado, misma arquitectura), tal como pide el enunciado.
-
-Autor: Nicolás Concuá
-"""
 from __future__ import annotations
 
 import argparse
@@ -67,5 +53,5 @@ def main():
     print(out.head().to_string(index=False))
 
 
-if __name__ == "__main__":
-    main()
+
+main()
